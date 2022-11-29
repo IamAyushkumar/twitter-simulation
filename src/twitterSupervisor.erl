@@ -1,11 +1,3 @@
-%%%-------------------------------------------------------------------
-%%% @author ayushkumar
-%%% @copyright (C) 2022, <COMPANY>
-%%% @doc
-%%%
-%%% @end
-%%% Created : 27. Nov 2022 6:56 AM
-%%%-------------------------------------------------------------------
 -module(twitterSupervisor).
 -author("ayushkumar").
 
@@ -42,21 +34,28 @@ start_link() ->
     MaxR :: non_neg_integer(), MaxT :: non_neg_integer()},
     [ChildSpec :: supervisor:child_spec()]}}
   | ignore | {error, Reason :: term()}).
+
 init([]) ->
   MaxRestarts = 1000,
   MaxSecondsBetweenRestarts = 3600,
   SupFlags = #{strategy => one_for_one,
     intensity => MaxRestarts,
     period => MaxSecondsBetweenRestarts},
-
-  AChild = #{id => 'AName',
-    start => {'AModule', start_link, []},
+  TwitterServer = #{id => twitterServer,
+    start => {twitterServer, start_link, []},
     restart => permanent,
     shutdown => 2000,
     type => worker,
-    modules => ['AModule']},
+    modules => [twitterServer]},
 
-  {ok, {SupFlags, [AChild]}}.
+  TwitterClient = #{id => twitterClient,
+    start => {twitterClient, start_link, []},
+    restart => permanent,
+    shutdown => 2000,
+    type => worker,
+    modules => [twitterServer]},
+
+  {ok, {SupFlags, [TwitterServer, TwitterClient]}}.
 
 %%%===================================================================
 %%% Internal functions

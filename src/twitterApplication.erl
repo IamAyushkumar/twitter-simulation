@@ -1,11 +1,3 @@
-%%%-------------------------------------------------------------------
-%%% @author ayushkumar
-%%% @copyright (C) 2022, <COMPANY>
-%%% @doc
-%%%
-%%% @end
-%%% Created : 27. Nov 2022 6:56 AM
-%%%-------------------------------------------------------------------
 -module(twitterApplication).
 -author("ayushkumar").
 
@@ -35,13 +27,9 @@
   {ok, pid()} |
   {ok, pid(), State :: term()} |
   {error, Reason :: term()}).
-start(_StartType, _StartArgs) ->
-  case 'TopSupervisor':start_link() of
-    {ok, Pid} ->
-      {ok, Pid};
-    Error ->
-      Error
-  end.
+
+start(_StartType, [NumClients, NumMaxFollowers, PercentageDisconnect]) ->
+  twitterClientSimulator:start_link(NumClients, NumMaxFollowers, PercentageDisconnect).
 
 %%--------------------------------------------------------------------
 %% @private
