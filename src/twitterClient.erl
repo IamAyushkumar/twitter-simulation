@@ -87,10 +87,12 @@ handle_call({comeOnline}, _From, State = #twitterClient_state{uid = Uid, pid = P
   {reply, {cameOnline, Uid}, State}.
 
 handle_call({receivedTweet, Tweet, Uid}, _From, State) ->
-  io:format(" ~p User received tweet = ~p, from user = ~p. ~n", [#twitterClient_state.uid, Tweet, Uid]).
+  io:format(" ~p User received tweet = ~p, from user = ~p. ~n", [#twitterClient_state.uid, Tweet, Uid]),
+  {noreply, State}.
 
 handle_call({receivedRetweet, Tweet, Uid}, _From, State) ->
-  io:format(" ~p User received tweet = ~p, from user = ~p. ~n", [#twitterClient_state.uid, Tweet, Uid]).
+  io:format(" ~p User received tweet = ~p, from user = ~p. ~n", [#twitterClient_state.uid, Tweet, Uid]),
+  {noreply, State}.
 
 handle_call({makeTweet, Type}, _From, State = #twitterClient_state {uid = Uid, pid = Pid}) ->
   Tweet = generate_self_tweet(Type),
@@ -141,10 +143,12 @@ propagate_retweet_to_live_followers(CurrIdx, LiveFollowersList, ReTweet) ->
 
 
 handle_call({alreadyRegistered, Uid}, _From, State) ->
-  io:format(" ~p User already registered. ~n", [Uid]).
+  io:format(" ~p User already registered. ~n", [Uid]),
+  {noreply, State}.
 
 handle_call({registerationSuccess, Uid}, _From, State) ->
-  io:format(" ~p User registered successfully. ~n", [Uid]).
+  io:format(" ~p User registered successfully. ~n", [Uid]),
+  {noreply, State}.
 %% load all the tweets it missed.
 
 %% @private
