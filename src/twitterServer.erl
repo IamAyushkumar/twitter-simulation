@@ -9,8 +9,8 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
   code_change/3]).
 
--export([register_user/2,disconnect_user/1,add_follower/2,add_mentions/3,add_subscriber/2,
-  add_tweets/2,get_follower/1,get_my_tweets/1,get_subscribed_to/1]).
+-export([register_user/2,disconnect_user/1,add_follower/2,add_mentions/2,add_subscriber/2,
+  add_Tweets/2,get_follower/1,get_my_Tweets/1,get_subscribed_to/1,add_hastags/2]).
 
 -export([get_follower_by_user/2,get_most_subscribed_users/1,loop_hastags/3,loop_mentions/3]).
 
@@ -39,7 +39,7 @@ start_link() ->
   {stop, Reason :: term()} | ignore).
 
 init([]) ->
-  %%ETS Table -> Client registry, tweets, hashtag_mentions, follower, subscriberto
+  %%ETS Table -> Client registry, Tweets, hashtag_mentions, follower, subscriberto
   ets:new(clients_registry, [set, public, named_table]),
   ets:new(tweets, [set, public, named_table]),
   ets:new(hashtags_mentions, [set, public, named_table]),
@@ -103,89 +103,87 @@ code_change(_OldVsn, State = #twitterServer_state{}, _Extra) ->
 %%%===================================================================
 
 %%registering the User
-register_user(userId,pid) ->
-  ets:insert(clients_registry, {userId, pid}),
-  ets:insert(tweets, {userId, []}),
-  ets:insert(subscribed_to, {userId, []}),
-  FollowerTuple = ets:lookup(followers, userId),
+register_user(UserId,Pid) ->
+  ets:insert(clients_registry, {UserId, Pid}),
+  ets:insert(tweets, {UserId, []}),
+  ets:insert(subscribed_to, {UserId, []}),
+  FollowerTuple = ets:lookup(followers, UserId),
   if FollowerTuple == [] ->
-    ets:insert(followers, {userId, []});
+    ets:insert(followers, {UserId, []});
   true->{}
   end.
 
 %%Disconnect the User
-disconnect_user(userId)->
-  ets:insert(clients_registry,{userId,"NULL"}).
+disconnect_user(UserId)->
+  ets:insert(clients_registry,{UserId,"NULL"}).
 
-%%   Getter Functions - for getting the tweets, subscriber and follower
-get_my_tweets(userId)->
-  TweetsTuple = ets:lookup(tweets,userId),
+%%   Getter Functions - for getting the Tweets, subscriber and follower
+get_my_Tweets(UserId)->
+  TweetsTuple = ets:lookup(tweets,UserId),
   {TweetsTuple}.
 
-get_subscribed_to(userId)->
-  SubscriberTuple=ets:lookup(subscribed_to,userId),
+get_subscribed_to(UserId)->
+  SubscriberTuple=ets:lookup(subscribed_to,UserId),
   {SubscriberTuple}.
 
-get_follower(userId)->
-  FollowerTuple=ets:lookup(subscribed_to,userId),
+get_follower(UserId)->
+  FollowerTuple = ets:lookup(subscribed_to,UserId),
   {FollowerTuple}.
 
 
-%% Setter Functions - to set the subscriber, follower and processing the tweets
-add_subscriber(userId,sub)->
-  [Tup] = ets:lookup(subscribed_to, userId),
-  List = elem(Tup, 1),
-  List = [sub | List],
-  ets:insert(subscribed_to, {userId, List}).
+%% Setter Functions - to set the subscriber, follower and processing the Tweets
+add_subscriber(UserId,Sub)->
+  [Tup] = ets:lookup(subscribed_to, UserId),
+  List = [Sub | Tup],
+  ets:insert(subscribed_to, {UserId, List}).
 
-add_follower(userId,sub)->
-  [Tup] = ets:lookup(subscribed_to, userId),
-  List = elem(Tup, 1),
-  List = [sub | List],
-  ets:insert(subscribed_to, {userId, List}).
+add_follower(UserId,Sub)->
+  [Tup] = ets:lookup(subscribed_to, UserId),
+  List = [Sub | Tup],
+  ets:insert(subscribed_to, {UserId, List}).
 
 
 %helper Function
-loop_hastags([_|tag],userId, tweets)->
-  add_hastags(_,userId,tweet),
-  loop_hashtag(tag, userId, tweet).
+loop_hastags([_|Tag],UserId, Tweets)->
+  add_hastags(_,UserId),
+  loop_hastags(Tag, UserId, Tweets).
 
-loop_mentions([_|mentions],userId, tweets)->
-  add_hastags(_,userId,tweet),
-  loop_hashtag(mentions, userId, tweet).
+loop_mentions([_|Mentions],UserId, Tweets)->
+  add_hastags(_,UserId),
+  loop_hastags(Mentions, UserId, Tweets).
 
 %% Processing the Tweets
-add_tweets(userId, tweet)->
-  TweetsTuple=ets:lookup(tweet, userId),
-  ets:insert(tweet,{userId,[TweetsTuple|tweet]}),
+add_Tweets(UserId, Tweets)->
+  TweetsTuple=ets:lookup(tweet, UserId),
+  ets:insert(tweet,{UserId,[TweetsTuple|Tweets]}),
   %% Hashtag list
-  HashtagList= re:compile("~r/\B#[a-zA-Z0-9_]+/",tweet),
-  loop_hastags([HashtagList],userId, tweets),
+  HashtagList= re:compile("~r/\B#[a-zA-Z0-9_]+/",Tweets),
+  loop_hastags([HashtagList],UserId, Tweets),
   %% Mentions list
-  MentionList = re:compile("~r/\B@[a-zA-Z0-9_]+/",tweet),
-  loop_hastags([MentionList],userId, tweets).
+  MentionList = re:compile("~r/\B@[a-zA-Z0-9_]+/",Tweets),
+  loop_hastags([MentionList],UserId, Tweets).
 
-add_hastags(tag, userId, tweets)->
-  HashtagTuple=ets:lookup(hashtags_mentions, tag),
-  AddHashtag=[HashtagTuple| tag],
-  ets:insert(hashtags_mentions,{userId,AddHashtag}).
+add_hastags(Tag, UserId)->
+  HashtagTuple=ets:lookup(hashtags_mentions, Tag),
+  AddHashtag=[HashtagTuple| Tag],
+  ets:insert(hashtags_mentions,{UserId,AddHashtag}).
 
-add_mentions(mentions,userId, tweets)->
-  MentionsTuple=ets:lookup(hashtags_mentions, tag),
-  AddMentions=[MentionsTuple| tag],
-  ets:insert(hashtags_mentions,{userId,AddMentions}).
+add_mentions(Mentions,UserId)->
+  MentionsTuple=ets:lookup(hashtags_mentions, Mentions),
+  AddMentions=[MentionsTuple| Mentions],
+  ets:insert(hashtags_mentions,{UserId,AddMentions}).
 
 %%ZIPf Distribution helper functions
-count_subscriber(follower) -> length([X || X <- follower, X < 1]).
+count_subscriber(Follower) -> length([X || X <- Follower, X < 1]).
 
-get_follower_by_user([First |userIdList], ZipfUserMap)->
-  maps:put(userId, count_subscriber(get_follower(First, ZipfUserMap))),
-  get_follower_by_user([userIdList], ZipfUserMap).
+get_follower_by_user([First |UserIdList], ZipfUserMap)->
+  maps:put(First, count_subscriber(get_follower(First)), ZipfUserMap),
+  get_follower_by_user([UserIdList], ZipfUserMap).
 
-get_most_subscribed_users(userIdList)->
+get_most_subscribed_users(UserIdList)->
   %%Map where user Id is sorted according to the count of their subscribers
   ZipfUserMap = #{},
-  get_follower_by_user(userIdList,[ZipfUserMap]),
+  get_follower_by_user(UserIdList,[ZipfUserMap]),
   %% Map to List, for sorting on the value of map ( no. of follower)
   List = maps:to_list(ZipfUserMap),
   lists:keysort(2, List),
