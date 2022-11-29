@@ -1,3 +1,4 @@
+
 -module(twitterServer).
 
 -behaviour(gen_server).
@@ -6,8 +7,7 @@
 -export([start_link/0]).
 
 %% gen_server callbacks
--export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
-  code_change/3]).
+-export([init/1, handle_call/3, terminate/2, code_change/3]).
 
 
 -export([register_user/2,disconnect_user/1,add_follower/2,add_mentions/2,add_subscriber/2,
@@ -17,7 +17,8 @@
 
 -define(SERVER, ?MODULE).
 
--record(twitterServer_state, {}).
+-record(twitterServer_state, {uid, pid, subcribers, tag, tweets, mentions, useridlist, followerid}).
+%% Here tweets is tweet Id and mentions is mentions id and sub is Subscriber Id
 
 %%%===================================================================
 %%% API
@@ -41,7 +42,7 @@ start_link() ->
   {stop, Reason :: term()} | ignore).
 
 init([]) ->
-  %%ETS Table -> Client registry, Tweets, hashtag_mentions, follower, subscriberto
+  %%ETS Table -> Client registry, Tweets, hashtag_mentions, follower, subscribed_to
   ets:new(clients_registry, [set, public, named_table]),
   ets:new(tweets, [set, public, named_table]),
   ets:new(hashtags_mentions, [set, public, named_table]),
@@ -55,33 +56,84 @@ init([]) ->
 -spec(handle_call(Request :: term(), From :: {pid(), Tag :: term()},
     State :: #twitterServer_state{}) ->
   {reply, Reply :: term(), NewState :: #twitterServer_state{}} |
-  {reply, Reply :: term(), NewState :: #twitterServer_state{}, timeout() | hibernate} |
+  {reply, Reply :: term(), NewState :: #twitterServer_state{}, timeout() | hibernate}|
+  {reply, Reply :: term(), NewState :: #twitterServer_state{}} |
+  {reply, Reply :: term(), NewState :: #twitterServer_state{}, timeout() | hibernate}|
+  {reply, Reply :: term(), NewState :: #twitterServer_state{}} |
+  {reply, Reply :: term(), NewState :: #twitterServer_state{}, timeout() | hibernate}|
+  {reply, Reply :: term(), NewState :: #twitterServer_state{}} |
+  {stop, Reason :: term(), Reply :: term(), NewState :: #twitterServer_state{}} |
+  {stop, Reason :: term(), NewState :: #twitterServer_state{}}).
+
+%% For registering the User
+handle_call({UserId, Pid}, _From, State = #twitterServer_state{uid=UserId, pid=Pid}) ->
+  register_user(uid),
+  {reply, ok, State}.
+%% For adding the follower
+handle_call({UserId, Sub}, _From, State = #twitterServer_state{uid=UserId, subcribers = Sub}) ->
+  add_follower(uid,subcribers),
+  {reply, ok, State}.
+%% For adding the tweets of the given User
+handle_call({UserId, Tweets}, _From, State = #twitterServer_state{uid=UserId, tweets =Tweets}) ->
+  add_Tweets(uid, tweets),
+  {reply, ok, State}.
+%% For adding in the hashtags tuple corresponding to the user
+handle_call({UserId, Tag}, _From, State = #twitterServer_state{uid=UserId, tag =Tag}) ->
+  add_hastags(tag, uid),
+  {reply, ok, State}.
+%% For adding in the mentions corresponding to the user
+handle_call({UserId, Mentions}, _From, State = #twitterServer_state{uid=UserId, mentions = Mentions}) ->
+  add_mentions(mentions,uid),
+  {reply, ok, State}.
+%% setting the user active
+handle_call({UserId}, _From, State = #twitterServer_state{uid=UserId}) ->
+  set_user_online(uid),
+  {reply, ok, State}.
+%% setting the user inactive
+handle_call({UserId}, _From, State = #twitterServer_state{uid=UserId}) ->
+  take_user_offine(uid),
+  {reply, ok, State}.
+
+
+%% @private
+%% @doc Handling call messages
+%% Dividing User actor is divided in 2 sets -
+%% 1. set  - Tweet Actor( for registering tweets )  , Mention Actor, Hashtag Actor,
+%% 2. Get  - Mention Actor, Hashtag Actor, Retweet Actors
+-spec(handle_call(Request :: term(), From :: {pid(), Tag :: term()},
+    State :: #twitterServer_state{}) ->
+  {noreply, NewState :: #twitterServer_state{}} |
+  {noreply, NewState :: #twitterServer_state{}, timeout() | hibernate} |
+  {noreply, NewState :: #twitterServer_state{}} |
+  {noreply, NewState :: #twitterServer_state{}, timeout() | hibernate} |
   {noreply, NewState :: #twitterServer_state{}} |
   {noreply, NewState :: #twitterServer_state{}, timeout() | hibernate} |
   {stop, Reason :: term(), Reply :: term(), NewState :: #twitterServer_state{}} |
   {stop, Reason :: term(), NewState :: #twitterServer_state{}}).
-handle_call(_Request, _From, State = #twitterServer_state{}) ->
+%%get the number of subscriber
+handle_call({UserId}, _From, State = #twitterServer_state{uid=UserId}) ->
+  get_subscribed_to(uid),
   {reply, ok, State}.
-
-%% @private
-%% @doc Handling cast messages
--spec(handle_cast(Request :: term(), State :: #twitterServer_state{}) ->
-  {noreply, NewState :: #twitterServer_state{}} |
-  {noreply, NewState :: #twitterServer_state{}, timeout() | hibernate} |
-  {stop, Reason :: term(), NewState :: #twitterServer_state{}}).
-
-handle_cast(_Request, State = #twitterServer_state{}) ->
-  {noreply, State}.
-
-%% @pgitrivate
-%% @doc Handling all non call/cast messages
--spec(handle_info(Info :: timeout() | term(), State :: #twitterServer_state{}) ->
-  {noreply, NewState :: #twitterServer_state{}} |
-  {noreply, NewState :: #twitterServer_state{}, timeout() | hibernate} |
-  {stop, Reason :: term(), NewState :: #twitterServer_state{}}).
-
-handle_info(_Info, State = #twitterServer_state{}) ->
-  {noreply, State}.
+%%get the number of follower
+handle_call({UserId}, _From, State = #twitterServer_state{uid=UserId}) ->
+  get_follower(uid),
+  {reply, ok, State}.
+%%get the number of tweets
+handle_call({UserId}, _From, State = #twitterServer_state{uid=UserId}) ->
+  get_my_Tweets(uid),
+  {reply, ok, State}.
+%% get the user List for ZIPf distribution
+handle_call({UserIdList}, _From, State = #twitterServer_state{ useridlist =UserIdList}) ->
+  get_most_subscribed_users(useridlist),
+  {reply, ok, State}.
+%% checking the user follows or not
+handle_call({UserId, FollowerId}, _From, State = #twitterServer_state{uid=UserId, followerid=FollowerId}) ->
+  already_follows(uid, followerid),
+  {reply, ok, State}.
+%% is user online ?
+handle_call({UserId}, _From, State = #twitterServer_state{uid=UserId}) ->
+  is_user_online(uid),
+  {reply, ok, State}.
 
 %% @private
 %% @doc This function is called by a gen_server when it is about to
@@ -106,7 +158,6 @@ code_change(_OldVsn, State = #twitterServer_state{}, _Extra) ->
 %%% Internal functions - Database Handler
 %%%===================================================================
 
-%%registering the User
 register_user(UserId,Pid) ->
   ets:insert(clients_registry, {UserId, Pid}),
   ets:insert(tweets, {UserId, []}),
@@ -206,8 +257,9 @@ set_user_online(UserId) ->
 take_user_offine(UserId) ->
   ActiveUserMap = ets:lookup(active_user,UserId),
   maps:put(UserId, 0, ActiveUserMap).
-%% finding in the follower tuple
 
+
+%% finding in the follower tuple
 find_in_follower_tuple(_, []) -> false;
 
 find_in_follower_tuple(E, T) when is_tuple(T) ->
