@@ -213,10 +213,10 @@ add_Tweets(UserId, Tweets)->
   TweetsTuple=ets:lookup(tweet, UserId),
   ets:insert(tweet,{UserId,[TweetsTuple|Tweets]}),
   %% Hashtag list
-  HashtagList= re:compile("~r/\B#[a-zA-Z0-9_]+/",Tweets),
+  HashtagList= re:compile("~r#[a-zA-Z0-9_]+",Tweets),
   loop_hastags([HashtagList],UserId, Tweets),
   %% Mentions list
-  MentionList = re:compile("~r/\B@[a-zA-Z0-9_]+/",Tweets),
+  MentionList = re:compile("~r@[a-zA-Z0-9_]+",Tweets),
   loop_hastags([MentionList],UserId, Tweets).
 
 add_hastags(Tag, UserId)->
