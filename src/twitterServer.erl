@@ -10,7 +10,7 @@
   code_change/3]).
 
 -export([register_user/2,disconnect_user/1,add_follower/2,add_mentions/3,add_subscriber/2,
-  add_tweets/2,get_follower/1,get_my_tweets/1,get_subscribed_to/1]).
+  add_tweets/2,get_follower/1,get_my_tweets/1,get_subscribed_to/1, already_follows/2, is_user_online/1, set_user_online/1, take_user_offine/1]).
 
 -export([get_follower_by_user/2,get_most_subscribed_users/1,loop_hastags/3,loop_mentions/3]).
 
@@ -26,7 +26,8 @@
 -spec(start_link() ->
   {ok, Pid :: pid()} | ignore | {error, Reason :: term()}).
 start_link() ->
-  gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
+  gen_server:start_link({local, ?SERVER}, ?MODULE, [], []),
+  {ok, self()}.
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -103,14 +104,22 @@ code_change(_OldVsn, State = #twitterServer_state{}, _Extra) ->
 %%%===================================================================
 
 %%registering the User
-register_user(userId,pid) ->
-  ets:insert(clients_registry, {userId, pid}),
-  ets:insert(tweets, {userId, []}),
-  ets:insert(subscribed_to, {userId, []}),
-  FollowerTuple = ets:lookup(followers, userId),
+handle_call({registerUser, Uid, Pid}, _From, State) ->
+  DoesAlreadyFollow = register_user(Uid, Pid),
+  if DoesAlreadyFollow == false -> {reply, {alreadyRegistered, Uid}, State};
+    true ->
+      {reply, registerationSuccess, State}
+  end.
+
+register_user(Uid, Pid) ->
+  ets:insert(clients_registry, {Uid, Pid}),
+  ets:insert(tweets, {Uid, []}),
+  ets:insert(subscribed_to, {Uid, []}),
+  FollowerTuple = ets:lookup(followers, Uid),
   if FollowerTuple == [] ->
-    ets:insert(followers, {userId, []});
-  true->{}
+    ets:insert(followers, {Uid, []}),
+    {true};
+  true->{false}
   end.
 
 %%Disconnect the User
@@ -134,13 +143,13 @@ get_follower(userId)->
 %% Setter Functions - to set the subscriber, follower and processing the tweets
 add_subscriber(userId,sub)->
   [Tup] = ets:lookup(subscribed_to, userId),
-  List = elem(Tup, 1),
+  List = element(Tup, 1),
   List = [sub | List],
   ets:insert(subscribed_to, {userId, List}).
 
 add_follower(userId,sub)->
   [Tup] = ets:lookup(subscribed_to, userId),
-  List = elem(Tup, 1),
+  List = element(Tup, 1),
   List = [sub | List],
   ets:insert(subscribed_to, {userId, List}).
 
@@ -152,7 +161,7 @@ loop_hastags([_|tag],userId, tweets)->
 
 loop_mentions([_|mentions],userId, tweets)->
   add_hastags(_,userId,tweet),
-  loop_hashtag(mentions, userId, tweet).
+  loop_mentions(mentions, userId, tweet).
 
 %% Processing the Tweets
 add_tweets(userId, tweet)->
@@ -190,3 +199,11 @@ get_most_subscribed_users(userIdList)->
   List = maps:to_list(ZipfUserMap),
   lists:keysort(2, List),
   {List}.
+
+is_user_online(UserId) -> {}.
+
+set_user_online(UserId) -> {}.
+
+take_user_offine(UserId) -> {}.
+
+already_follows(Celeb, Follower) -> {}. %% already follows? true/false atom.
