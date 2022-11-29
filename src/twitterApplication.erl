@@ -27,13 +27,9 @@
   {ok, pid()} |
   {ok, pid(), State :: term()} |
   {error, Reason :: term()}).
-start(_StartType, _StartArgs) ->
-  case 'TopSupervisor':start_link() of
-    {ok, Pid} ->
-      {ok, Pid};
-    Error ->
-      Error
-  end.
+
+start(_StartType, [NumClients, NumMaxFollowers, PercentageDisconnect]) ->
+  twitterClientSimulator:start_link(NumClients, NumMaxFollowers, PercentageDisconnect).
 
 %%--------------------------------------------------------------------
 %% @private

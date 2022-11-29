@@ -9,8 +9,9 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
   code_change/3]).
 
+
 -export([register_user/2,disconnect_user/1,add_follower/2,add_mentions/2,add_subscriber/2,
-  add_Tweets/2,get_follower/1,get_my_Tweets/1,get_subscribed_to/1,add_hastags/2]).
+  add_Tweets/2,get_follower/1,get_my_Tweets/1,get_subscribed_to/1,add_hastags/2, is_user_online/1, set_user_online/1,take_user_offine/1,already_follows/2]).
 
 -export([get_follower_by_user/2,get_most_subscribed_users/1,loop_hastags/3,loop_mentions/3]).
 
@@ -26,7 +27,8 @@
 -spec(start_link() ->
   {ok, Pid :: pid()} | ignore | {error, Reason :: term()}).
 start_link() ->
-  gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
+  gen_server:start_link({local, ?SERVER}, ?MODULE, [], []),
+  {ok, self()}.
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -45,6 +47,7 @@ init([]) ->
   ets:new(hashtags_mentions, [set, public, named_table]),
   ets:new(subscribed_to, [set, public, named_table]),
   ets:new(followers, [set, public, named_table]),
+  ets:new(active_user, [set, public, named_table]),
   {ok, #twitterServer_state{}}.
 
 %% @private
@@ -98,6 +101,7 @@ terminate(_Reason, _State = #twitterServer_state{}) ->
 code_change(_OldVsn, State = #twitterServer_state{}, _Extra) ->
   {ok, State}.
 
+
 %%%===================================================================
 %%% Internal functions - Database Handler
 %%%===================================================================
@@ -107,13 +111,14 @@ register_user(UserId,Pid) ->
   ets:insert(clients_registry, {UserId, Pid}),
   ets:insert(tweets, {UserId, []}),
   ets:insert(subscribed_to, {UserId, []}),
+  ets:insert(active_user, {UserId, #{}}),
   FollowerTuple = ets:lookup(followers, UserId),
   if FollowerTuple == [] ->
     ets:insert(followers, {UserId, []});
-  true->{}
+    true->{}
   end.
 
-%%Disconnect the User
+%%   Disconnect the User
 disconnect_user(UserId)->
   ets:insert(clients_registry,{UserId,"NULL"}).
 
@@ -131,7 +136,7 @@ get_follower(UserId)->
   {FollowerTuple}.
 
 
-%% Setter Functions - to set the subscriber, follower and processing the Tweets
+%%  Setter Functions - to set the subscriber, follower and processing the Tweets
 add_subscriber(UserId,Sub)->
   [Tup] = ets:lookup(subscribed_to, UserId),
   List = [Sub | Tup],
@@ -143,7 +148,7 @@ add_follower(UserId,Sub)->
   ets:insert(subscribed_to, {UserId, List}).
 
 
-%helper Function
+%%helper Function
 loop_hastags([_|Tag],UserId, Tweets)->
   add_hastags(_,UserId),
   loop_hastags(Tag, UserId, Tweets).
@@ -188,3 +193,32 @@ get_most_subscribed_users(UserIdList)->
   List = maps:to_list(ZipfUserMap),
   lists:keysort(2, List),
   {List}.
+
+is_user_online(UserId) ->
+  ActiveUserMap = ets:lookup(active_user,UserId),
+  {maps:get(UserId, ActiveUserMap)}.
+
+set_user_online(UserId) ->
+  ActiveUserMap = ets:lookup(active_user,UserId),
+  maps:put(UserId, 1, ActiveUserMap).
+
+
+take_user_offine(UserId) ->
+  ActiveUserMap = ets:lookup(active_user,UserId),
+  maps:put(UserId, 0, ActiveUserMap).
+%% finding in the follower tuple
+
+find_in_follower_tuple(_, []) -> false;
+
+find_in_follower_tuple(E, T) when is_tuple(T) ->
+  find_in_follower_tuple(E, tuple_to_list(T));
+
+find_in_follower_tuple(E, [H|T]) ->
+  case find_in_follower_tuple(E, H) of
+    false -> find_in_follower_tuple(E, T);
+    true -> true
+  end.
+
+already_follows(Celeb, Follower) ->
+  FollowerTuple = get_follower(Celeb),
+  find_in_follower_tuple(FollowerTuple,Follower).
