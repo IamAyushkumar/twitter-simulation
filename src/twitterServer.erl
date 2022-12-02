@@ -9,11 +9,10 @@
 %% gen_server callbacks
 -export([init/1, handle_call/3, terminate/2, code_change/3]).
 
-
 -export([register_user/2,disconnect_user/1,add_follower/2,add_mentions/2,add_subscriber/2,
   add_Tweets/2,get_follower/1,get_my_Tweets/1,get_subscribed_to/1,add_hastags/2, is_user_online/1, set_user_online/1,take_user_offine/1,already_follows/2]).
 
--export([get_follower_by_user/2,get_most_subscribed_users/1,loop_hastags/3,loop_mentions/3]).
+-export([get_follower_by_user/2, get_most_subscribed_users/1, loop_hastags/3, loop_mentions/3]).
 
 -define(SERVER, ?MODULE).
 
@@ -228,9 +227,15 @@ add_mentions(Mentions,UserId)->
   MentionsTuple=ets:lookup(hashtags_mentions, Mentions),
   AddMentions=[MentionsTuple| Mentions],
   ets:insert(hashtags_mentions,{UserId,AddMentions}).
+    ets:insert(followers, {Uid, []}),
+    {true};
+    true -> {false}
+  end.
+
 
 %%ZIPf Distribution helper functions
 count_subscriber(Follower) -> length([X || X <- Follower, X < 1]).
+
 
 get_follower_by_user([First |UserIdList], ZipfUserMap)->
   maps:put(First, count_subscriber(get_follower(First)), ZipfUserMap),
@@ -240,6 +245,7 @@ get_most_subscribed_users(UserIdList)->
   %%Map where user Id is sorted according to the count of their subscribers
   ZipfUserMap = #{},
   get_follower_by_user(UserIdList,[ZipfUserMap]),
+
   %% Map to List, for sorting on the value of map ( no. of follower)
   List = maps:to_list(ZipfUserMap),
   lists:keysort(2, List),

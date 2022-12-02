@@ -189,7 +189,7 @@ handle_call({wentOffline, Uid}, _From, State = #twitterClientSimulatorState{
   {noreply, #twitterClientSimulatorState{offlineUids = UpdatedOfflineUids}},
   io:format(" ~p User went offline successfully ~n", [Uid]).
 
-handle_call({cameOnline, Uid}, _From, State= #twitterClientSimulatorState{
+handle_call({cameOnline, Uid}, _From, State = #twitterClientSimulatorState{
   allClientsPids = AllClientsPids,
   allClientsUids = AllClientsUids,
   uidToPidMap = UidToPidMap,

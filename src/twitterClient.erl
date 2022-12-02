@@ -87,12 +87,14 @@ handle_call({comeOnline}, _From, State = #twitterClient_state{uid = Uid, pid = P
   {reply, {cameOnline, Uid}, State}.
 
 handle_call({receivedTweet, Tweet, Uid}, _From, State) ->
-  io:format(" ~p User received tweet = ~p, from user = ~p. ~n", [#twitterClient_state.uid, Tweet, Uid]).
+  io:format(" ~p User received tweet = ~p, from user = ~p. ~n", [#twitterClient_state.uid, Tweet, Uid]),
+  {noreply, State}.
 
 handle_call({receivedRetweet, Tweet, Uid}, _From, State) ->
-  io:format(" ~p User received tweet = ~p, from user = ~p. ~n", [#twitterClient_state.uid, Tweet, Uid]).
+  io:format(" ~p User received tweet = ~p, from user = ~p. ~n", [#twitterClient_state.uid, Tweet, Uid]),
+  {noreply, State}.
 
-handle_call({makeTweet, Type}, _From, State = #twitterClient_state {uid = Uid, pid = Pid}) ->
+handle_call({makeTweet, Type}, _From, State = #twitterClient_state{uid = Uid, pid = Pid}) ->
   Tweet = generate_self_tweet(Type),
   TweetId = crypto:hash(md5, Tweet),
   %% make DB call, gen_server, tweetId, insert in global maps {tweet -> tweetId}, {tweetId -> tweet}, save it in self_tweets, save in feed of all followers + send this tweet to online followers.
@@ -111,8 +113,10 @@ propagate_tweet_to_live_followers(CurrIdx, LiveFollowersList, Tweet) ->
 generate_self_tweet(Type) -> %% 0 -> with hashtag, 1 -> with mention, 2 -> both, 3/_ -> default
   BaseTweet = "Hi, this is a base tweet for my uid " + #twitterClient_state.uid,
   case Type of
-    0 -> BaseTweet + lists:nth(rand:uniform(length(#twitterClient_state.genratedHashTags)), #twitterClient_state.genratedHashTags);
-    1 -> BaseTweet + "@" + lists:nth(rand:uniform(length(#twitterClient_state.allClientUids)), #twitterClient_state.allClientUids);
+    0 ->
+      BaseTweet + lists:nth(rand:uniform(length(#twitterClient_state.genratedHashTags)), #twitterClient_state.genratedHashTags);
+    1 ->
+      BaseTweet + "@" + lists:nth(rand:uniform(length(#twitterClient_state.allClientUids)), #twitterClient_state.allClientUids);
     2 -> BaseTweet +
       lists:nth(rand:uniform(length(#twitterClient_state.genratedHashTags)), #twitterClient_state.genratedHashTags) +
       "@" + lists:nth(rand:uniform(length(#twitterClient_state.allClientUids)), #twitterClient_state.allClientUids);
@@ -141,18 +145,20 @@ propagate_retweet_to_live_followers(CurrIdx, LiveFollowersList, ReTweet) ->
 
 
 handle_call({alreadyRegistered, Uid}, _From, State) ->
-  io:format(" ~p User already registered. ~n", [Uid]).
+  io:format(" ~p User already registered. ~n", [Uid]),
+  {noreply, State}.
 
 handle_call({registerationSuccess, Uid}, _From, State) ->
-  io:format(" ~p User registered successfully. ~n", [Uid]).
+  io:format(" ~p User registered successfully. ~n", [Uid]),
+  {noreply, State}.
 %% load all the tweets it missed.
 
 %% @private
 %% @doc Handling cast messages
-    - spec(handle_cast(Request :: term(), State :: #twitterClient_state{}) ->
-{noreply, NewState :: #twitterClient_state{}} |
-{noreply, NewState :: #twitterClient_state{}, timeout() | hibernate} |
-{stop, Reason :: term(), NewState :: #twitterClient_state{}}).
+-spec(handle_cast(Request :: term(), State :: #twitterClient_state{}) ->
+  {noreply, NewState :: #twitterClient_state{}} |
+  {noreply, NewState :: #twitterClient_state{}, timeout() | hibernate} |
+  {stop, Reason :: term(), NewState :: #twitterClient_state{}}).
 handle_cast(_Request, State = #twitterClient_state{}) ->
   {noreply, State}.
 
