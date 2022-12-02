@@ -118,7 +118,7 @@ simulate_followers(CurrentIdx, NumFollowers, State = #twitterClientSimulatorStat
   if CurrentIdx == length(AllClientsUids) -> {};
     true -> increase_uid_followers(NumFollowers, lists:nth(CurrentIdx, AllClientsUids))
   end,
-  simulate_followers(CurrentIdx + 1, NumFollowers / 2, State). %% for zipf
+  simulate_followers(CurrentIdx + 1, NumFollowers / (CurrentIdx + 1), State). %% for zipf
 
 increase_uid_followers(NumFollowers, UidToFollow) when NumFollowers > 0 ->
   RandomUid = twitterUtils:get_random_uid_from_activeUsers(#twitterClientSimulatorState.allClientsUids),
