@@ -65,32 +65,32 @@ init([]) ->
   {stop, Reason :: term(), NewState :: #twitterServer_state{}}).
 
 %% For registering the User
-handle_call({UserId, Pid}, _From, State = #twitterServer_state{uid=UserId, pid=Pid}) ->
-  register_user(uid),
+handle_call({registeruser, UserId, Pid}, _From, State = #twitterServer_state{uid=UserId, pid=Pid}) ->
+  register_user(#twitterServer_state.uid),
   {reply, ok, State}.
 %% For adding the follower
-handle_call({UserId, Sub}, _From, State = #twitterServer_state{uid=UserId, subcribers = Sub}) ->
-  add_follower(uid,subcribers),
+handle_call({addfollower, UserId, Sub}, _From, State = #twitterServer_state{uid=UserId, subcribers = Sub}) ->
+  add_follower(#twitterServer_state.uid,#twitterServer_state.subcribers),
   {reply, ok, State}.
 %% For adding the tweets of the given User
-handle_call({UserId, Tweets}, _From, State = #twitterServer_state{uid=UserId, tweets =Tweets}) ->
-  add_Tweets(uid, tweets),
+handle_call({addtweets, UserId, Tweets}, _From, State = #twitterServer_state{uid=UserId, tweets =Tweets}) ->
+  add_Tweets(#twitterServer_state.uid, #twitterServer_state.tweets),
   {reply, ok, State}.
 %% For adding in the hashtags tuple corresponding to the user
-handle_call({UserId, Tag}, _From, State = #twitterServer_state{uid=UserId, tag =Tag}) ->
-  add_hastags(tag, uid),
+handle_call({addhastags, UserId, Tag}, _From, State = #twitterServer_state{uid=UserId, tag =Tag}) ->
+  add_hastags(#twitterServer_state.tag, #twitterServer_state.uid),
   {reply, ok, State}.
 %% For adding in the mentions corresponding to the user
-handle_call({UserId, Mentions}, _From, State = #twitterServer_state{uid=UserId, mentions = Mentions}) ->
-  add_mentions(mentions,uid),
+handle_call({addmentions, UserId, Mentions}, _From, State = #twitterServer_state{uid=UserId, mentions = Mentions}) ->
+  add_mentions(#twitterServer_state.mentions,#twitterServer_state.uid),
   {reply, ok, State}.
 %% setting the user active
-handle_call({UserId}, _From, State = #twitterServer_state{uid=UserId}) ->
-  set_user_online(uid),
+handle_call({setuseronline, UserId}, _From, State = #twitterServer_state{uid=UserId}) ->
+  set_user_online(#twitterServer_state.uid),
   {reply, ok, State}.
 %% setting the user inactive
-handle_call({UserId}, _From, State = #twitterServer_state{uid=UserId}) ->
-  take_user_offine(uid),
+handle_call({takeuseroffline,UserId}, _From, State = #twitterServer_state{uid=UserId}) ->
+  take_user_offine(#twitterServer_state.uid),
   {reply, ok, State}.
 
 
@@ -110,28 +110,28 @@ handle_call({UserId}, _From, State = #twitterServer_state{uid=UserId}) ->
   {stop, Reason :: term(), Reply :: term(), NewState :: #twitterServer_state{}} |
   {stop, Reason :: term(), NewState :: #twitterServer_state{}}).
 %%get the number of subscriber
-handle_call({UserId}, _From, State = #twitterServer_state{uid=UserId}) ->
-  get_subscribed_to(uid),
+handle_call({getsubscriber, UserId}, _From, State = #twitterServer_state{uid=UserId}) ->
+  get_subscribed_to(#twitterServer_state.uid),
   {reply, ok, State}.
 %%get the number of follower
-handle_call({UserId}, _From, State = #twitterServer_state{uid=UserId}) ->
-  get_follower(uid),
+handle_call({getfollower, UserId}, _From, State = #twitterServer_state{uid=UserId}) ->
+  get_follower(#twitterServer_state.uid),
   {reply, ok, State}.
 %%get the number of tweets
-handle_call({UserId}, _From, State = #twitterServer_state{uid=UserId}) ->
-  get_my_Tweets(uid),
+handle_call({gettweets, UserId}, _From, State = #twitterServer_state{uid=UserId}) ->
+  get_my_Tweets(#twitterServer_state.uid),
   {reply, ok, State}.
 %% get the user List for ZIPf distribution
-handle_call({UserIdList}, _From, State = #twitterServer_state{ useridlist =UserIdList}) ->
-  get_most_subscribed_users(useridlist),
+handle_call({subscriberlist, UserIdList}, _From, State = #twitterServer_state{ useridlist =UserIdList}) ->
+  get_most_subscribed_users(#twitterServer_state.useridlist),
   {reply, ok, State}.
 %% checking the user follows or not
-handle_call({UserId, FollowerId}, _From, State = #twitterServer_state{uid=UserId, followerid=FollowerId}) ->
-  already_follows(uid, followerid),
+handle_call({alreadyfollow, UserId, FollowerId}, _From, State = #twitterServer_state{uid=UserId, followerid=FollowerId}) ->
+  already_follows(#twitterServer_state.uid, #twitterServer_state.followerid),
   {reply, ok, State}.
 %% is user online ?
-handle_call({UserId}, _From, State = #twitterServer_state{uid=UserId}) ->
-  is_user_online(uid),
+handle_call({useronline, UserId}, _From, State = #twitterServer_state{uid=UserId}) ->
+  is_user_online(#twitterServer_state.uid),
   {reply, ok, State}.
 
 %% @private
@@ -227,15 +227,9 @@ add_mentions(Mentions,UserId)->
   MentionsTuple=ets:lookup(hashtags_mentions, Mentions),
   AddMentions=[MentionsTuple| Mentions],
   ets:insert(hashtags_mentions,{UserId,AddMentions}).
-    ets:insert(followers, {Uid, []}),
-    {true};
-    true -> {false}
-  end.
-
 
 %%ZIPf Distribution helper functions
 count_subscriber(Follower) -> length([X || X <- Follower, X < 1]).
-
 
 get_follower_by_user([First |UserIdList], ZipfUserMap)->
   maps:put(First, count_subscriber(get_follower(First)), ZipfUserMap),
@@ -263,7 +257,6 @@ set_user_online(UserId) ->
 take_user_offine(UserId) ->
   ActiveUserMap = ets:lookup(active_user,UserId),
   maps:put(UserId, 0, ActiveUserMap).
-
 
 %% finding in the follower tuple
 find_in_follower_tuple(_, []) -> false;
