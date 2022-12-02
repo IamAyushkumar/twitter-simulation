@@ -70,20 +70,20 @@ init([Uid, DbPid, GeneratedHashTags, AllClientsUids]) ->
   {stop, Reason :: term(), NewState :: #twitterClient_state{}}).
 
 handle_call({follow, UidToFollow}, _From, State = #twitterClient_state{uid = Uid, pid = Pid}) ->
-  DoesAlreadyFollow = twitterServer:already_follows(UidToFollow, Uid),
+  {ok, DoesAlreadyFollow} = gen_server:call(#twitterClient_state.dbPid, {alreadyfollow, UidToFollow, Uid}),
   if DoesAlreadyFollow == true -> {reply, {alreadyFollows, UidToFollow}, State};
     true ->
-      twitterServer:add_follower(Uid, UidToFollow),
+      gen_server:call(#twitterClient_state.dbPid, {addfollower, Uid, UidToFollow}),
       {reply, followSuccess, State}
   end.
 
 
 handle_call({goOffline}, _From, State = #twitterClient_state{uid = Uid, pid = Pid}) ->
-  twitterServer:take_user_offine(Uid), %% make gen_server call here
+  gen_server:call(#twitterClient_state.dbPid, {takeuseroffline, Uid}),
   {reply, {wentOffline, Uid}, State}.
 
 handle_call({comeOnline}, _From, State = #twitterClient_state{uid = Uid, pid = Pid}) ->
-  twitterServer:take_user_offine(Uid), %% make gen_server call here
+  gen_server:call(#twitterClient_state.dbPid, {setuseronline, Uid}),
   {reply, {cameOnline, Uid}, State}.
 
 handle_call({receivedTweet, Tweet, Uid}, _From, State) ->
@@ -97,8 +97,9 @@ handle_call({receivedRetweet, Tweet, Uid}, _From, State) ->
 handle_call({makeTweet, Type}, _From, State = #twitterClient_state{uid = Uid, pid = Pid}) ->
   Tweet = generate_self_tweet(Type),
   TweetId = crypto:hash(md5, Tweet),
-  %% make DB call, gen_server, tweetId, insert in global maps {tweet -> tweetId}, {tweetId -> tweet}, save it in self_tweets, save in feed of all followers + send this tweet to online followers.
-  LiveFollowersList = [], %% make gen_server call and get all live followers
+  %% make DB call gen_server, insert in global maps {tweet -> tweetId}, {tweetId -> tweet}, save it in self_tweets, save in feed of all followers + send this tweet to online followers.
+  gen_server:call(#twitterClient_state.dbPid, {addtweets, Uid, Tweet}),
+  {ok, LiveFollowersList} = gen_server:call(#twitterClient_state.dbPid, {livefollowers, Uid}),
   propagate_tweet_to_live_followers(0, LiveFollowersList, Tweet),
   {reply, {madeTweet, Uid, Tweet}, State}.
 
@@ -124,15 +125,15 @@ generate_self_tweet(Type) -> %% 0 -> with hashtag, 1 -> with mention, 2 -> both,
   end.
 
 handle_call({retweet}, _From, State = #twitterClient_state{uid = Uid, pid = Pid}) ->
-  AllFeedTweetIds = [], %% make gen server db call here to get all the tweetIds in my feed.
+  AllFeedTweetIds = gen_server:call(#twitterClient_state.dbPid, {gettweets, Uid}),
   %% my feed will contain tweetIds of all the tweets made by users that I follow
-  RandomTweetId = lists:nth(rand:uniform(length(AllFeedTweetIds)), AllFeedTweetIds),
-  RandomTweetString = " ", %% make db call here to get tweet string from tweetId.
+  RandomTweet = lists:nth(rand:uniform(length(AllFeedTweetIds)), AllFeedTweetIds),
+  %% make db call here to get tweet string from tweetId.
   %% make db call, insert this tweet in my retweeted tweets, and in my followers feed
   %% make DB call, gen_server, create tweetId, save it in self_tweets, save in feed of all followers + send this tweet to online followers.
-  LiveFollowersList = [], %% make gen_server call and get all live followers
-  propagate_retweet_to_live_followers(0, LiveFollowersList, RandomTweetString),
-  {reply, {madeRetweet, Uid, RandomTweetString}, State}.
+  {ok, LiveFollowersList} = gen_server:call(#twitterClient_state.dbPid, {livefollowers, Uid}),
+  propagate_retweet_to_live_followers(0, LiveFollowersList, RandomTweet),
+  {reply, {madeRetweet, Uid, RandomTweet}, State}.
 
 
 propagate_retweet_to_live_followers(CurrIdx, LiveFollowersList, ReTweet) ->
@@ -189,7 +190,3 @@ terminate(_Reason, _State = #twitterClient_state{}) ->
   {ok, NewState :: #twitterClient_state{}} | {error, Reason :: term()}).
 code_change(_OldVsn, State = #twitterClient_state{}, _Extra) ->
   {ok, State}.
-
-%%%===================================================================
-%%% Internal functions
-%%%===================================================================

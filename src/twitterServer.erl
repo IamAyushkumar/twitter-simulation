@@ -4,7 +4,7 @@
 -behaviour(gen_server).
 
 %% API
--export([start_link/0]).
+-export([start_link/0, handle_cast/2]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, terminate/2, code_change/3]).
@@ -82,6 +82,8 @@ handle_call({addtweets, UserId, Tweets}, _From, State = #twitterServer_state{uid
 handle_call({addretweets, UserId, Retweets}, _From, State = #twitterServer_state{uid=UserId, retweets =Retweets}) ->
   add_Retweets(#twitterServer_state.uid, #twitterServer_state.retweets),
   {reply, ok, State}.
+handle_call({livefollowers, UserId}, _From, State = #twitterServer_state{uid=UserId, retweets =Retweets}) ->
+  {reply, {ok, get_active_user(UserId)}, State}.
 %% For adding in the hashtags tuple corresponding to the user
 handle_call({addhastags, UserId, Tag}, _From, State = #twitterServer_state{uid=UserId, tag =Tag}) ->
   add_hastags(#twitterServer_state.tag, #twitterServer_state.uid),
@@ -140,8 +142,7 @@ handle_call({subscriberlist, UserIdList}, _From, State = #twitterServer_state{ u
   {reply, ok, State}.
 %% checking the user follows or not
 handle_call({alreadyfollow, UserId, FollowerId}, _From, State = #twitterServer_state{uid=UserId, followerid=FollowerId}) ->
-  already_follows(#twitterServer_state.uid, #twitterServer_state.followerid),
-  {reply, ok, State}.
+  {reply, {ok, already_follows(#twitterServer_state.uid, #twitterServer_state.followerid)}, State}.
 %% is user online ?
 handle_call({useronline, UserId}, _From, State = #twitterServer_state{uid=UserId}) ->
   is_user_online(#twitterServer_state.uid),
@@ -314,14 +315,18 @@ already_follows(Celeb, Follower) ->
   find_in_follower_tuple(FollowerTuple,Follower).
 
 check_active_user(ActiveUserMap, [F| FollowerTuple],ActiveUserList)->
-  if map->get(F,ActiveUserMap) == 1,
+  Exists = maps:get(F,ActiveUserMap,null),
+  if Exists =/= null ->
     ActiveUserList = [F| ActiveUserList]
   end,
   check_active_user(ActiveUserMap, FollowerTuple, ActiveUserList).
 
 get_active_user(UserId)->
   FollowerTuple = get_follower(UserId),
-  ActiveUserMap = ets:lookup(active_user),
+  ActiveUserMap = ets:lookup(active_user, _),
   ActiveUserList= [],
   check_active_user(ActiveUserMap, FollowerTuple, ActiveUserList),
   {ActiveUserList}.
+
+handle_cast(_Request, State = #twitterServer_state{}) ->
+  {noreply, State}.
