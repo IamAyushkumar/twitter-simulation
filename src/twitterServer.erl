@@ -16,7 +16,7 @@
 
 -define(SERVER, ?MODULE).
 
--record(twitterServer_state, {uid, pid, subcribers, tag, tweets,retweets, mentions, useridlist, followerid}).
+-record(twitterServer_state, {uid, pid, subscriber, tag, tweets,retweets, mentions, useridlist, followerid}).
 %% Here tweets is tweet Id and mentions is mentions id and sub is Subscriber Id
 
 %%%===================================================================
@@ -71,8 +71,8 @@ handle_call({registeruser, UserId, Pid}, _From, State = #twitterServer_state{uid
   register_user(#twitterServer_state.uid),
   {reply, ok, State}.
 %% For adding the follower
-handle_call({addfollower, UserId, Sub}, _From, State = #twitterServer_state{uid=UserId, subcribers = Sub}) ->
-  add_follower(#twitterServer_state.uid,#twitterServer_state.subcribers),
+handle_call({addfollower, UserId, Sub}, _From, State = #twitterServer_state{uid=UserId, subscriber = Sub}) ->
+  add_follower(#twitterServer_state.uid,#twitterServer_state.subscriber),
   {reply, ok, State}.
 %% For adding the tweets of the given User
 handle_call({addtweets, UserId, Tweets}, _From, State = #twitterServer_state{uid=UserId, tweets =Tweets}) ->
