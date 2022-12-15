@@ -68,7 +68,7 @@ init([]) ->
 
 %% For registering the User
 handle_call({registeruser, UserId, Pid}, _From, State = #twitterServer_state{uid=UserId, pid=Pid}) ->
-  register_user(#twitterServer_state.uid),
+  register_user(#twitterServer_state.uid,#twitterServer_state.pid),
   {reply, ok, State}.
 %% For adding the follower
 handle_call({addfollower, UserId, Sub}, _From, State = #twitterServer_state{uid=UserId, subscriber = Sub}) ->
@@ -132,7 +132,7 @@ handle_call({gettweets, UserId}, _From, State = #twitterServer_state{uid=UserId}
 
 %%get the number of Retweets
 handle_call({gettweets, UserId}, _From, State = #twitterServer_state{uid=UserId}) ->
-  get_my_Retweets(#twitterServer_state.uid),
+  get_retweets(#twitterServer_state.uid),
   {reply, ok, State}.
 %% get the user List for ZIPf distribution
 handle_call({subscriberlist, UserIdList}, _From, State = #twitterServer_state{ useridlist =UserIdList}) ->
@@ -228,12 +228,12 @@ add_follower(UserId,Sub)->
 
 
 %%helper Function
-loop_hastags([_|Tag],UserId, Tweets)->
-  add_hastags(_,UserId),
+loop_hastags([A|Tag],UserId, Tweets)->
+  add_hastags(A,UserId),
   loop_hastags(Tag, UserId, Tweets).
 
-loop_mentions([_|Mentions],UserId, Tweets)->
-  add_hastags(_,UserId),
+loop_mentions([A|Mentions],UserId, Tweets)->
+  add_hastags(A,UserId),
   loop_hastags(Mentions, UserId, Tweets).
 
 %% Processing the Tweets

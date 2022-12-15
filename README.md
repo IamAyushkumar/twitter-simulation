@@ -1,9 +1,8 @@
 # twitter-clone-websockets-phoenix
 
 Authors:
-Akash Kumar - (80024442)
+Akash Kumar - (80024442)<br>
 Ayush Kumar - (54666085)
-
 
 -------------------------------------------------------
 COP5615 : DISTRIBUTED SYSTEMS - TWITTER CLONE
@@ -25,8 +24,8 @@ Server:
 {"ref":"1","payload":{"response":"tweeter:userAkash has tweeted "Testing 2nd twitter Simulation DOSP Project Result: Message Received #dosp #COP5615 @akashkumar"},"HashTag":{"dosp",”#COP5615”}, Mention:””, "event":"tweet"}
 {"ref":"1","payload":{"response":"tweeter:userAkash has tweeted "Testing 3rd twitter Simulation DOSP Project Result: Message Received #dosp #COP5615 @akashkumar"},"HashTag":{"dosp",”#COP5615”}, Mention:””, "event":"tweet"}
 {"ref":"1","payload":{"response":"tweeter:userAkash has tweeted "Testing 4th twitter Simulation DOSP Project Result: Message Received #dosp #COP5615 @akashkumar"},"HashTag":{"dosp",”#COP5615”}, Mention:””, "event":"tweet"}
-{"ref":"1","payload":{" response":"tweeter: userayush subscribed to @akashkumar"},"HashTag":"", Mention:””, "event":"subs "}
-{"ref":"1","payload":{"response":"tweeter:userArsh has re-tweeted "Testing retweet twitter Simulation DOSP Project #dosp #COP5615 @ayush"},"HashTag":"loveLife", Mention:” userMehul”, "event":"re-tweet"}
+{"ref":"1","payload":{" response":"tweeter:userAyush subscribed to @akashkumar"},"HashTag":"", Mention:””, "event":"subs "}
+{"ref":"1","payload":{"response":"tweeter:userAyush has re-tweeted "Testing retweet twitter Simulation DOSP Project #dosp #COP5615 @ayush"},"HashTag":{"dosp",”#COP5615”}, Mention:””, "event":"re-tweet"}
 
 </pre>
 # Web UI
