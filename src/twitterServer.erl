@@ -68,85 +68,69 @@ init([]) ->
 
 %% For registering the User
 handle_call({registeruser, UserId, Pid}, _From, State = #twitterServer_state{uid=UserId, pid=Pid}) ->
-  register_user(#twitterServer_state.uid),
-  {reply, ok, State}.
+  register_user(#twitterServer_state.uid, Pid),
+  {reply, ok, State};
 %% For adding the follower
 handle_call({addfollower, UserId, Sub}, _From, State = #twitterServer_state{uid=UserId, subcribers = Sub}) ->
   add_follower(#twitterServer_state.uid,#twitterServer_state.subcribers),
-  {reply, ok, State}.
+  {reply, ok, State};
 %% For adding the tweets of the given User
 handle_call({addtweets, UserId, Tweets}, _From, State = #twitterServer_state{uid=UserId, tweets =Tweets}) ->
   add_Tweets(#twitterServer_state.uid, #twitterServer_state.tweets),
-  {reply, ok, State}.
+  {reply, ok, State};
 %% For adding the tweets of the given User
 handle_call({addretweets, UserId, Retweets}, _From, State = #twitterServer_state{uid=UserId, retweets =Retweets}) ->
   add_Retweets(#twitterServer_state.uid, #twitterServer_state.retweets),
-  {reply, ok, State}.
-handle_call({livefollowers, UserId}, _From, State = #twitterServer_state{uid=UserId, retweets =Retweets}) ->
-  {reply, {ok, get_active_user(UserId)}, State}.
+  {reply, ok, State};
+handle_call({livefollowers, UserId}, _From, State = #twitterServer_state{uid=UserId}) ->
+  {reply, {ok, get_active_user(UserId)}, State};
 %% For adding in the hashtags tuple corresponding to the user
 handle_call({addhastags, UserId, Tag}, _From, State = #twitterServer_state{uid=UserId, tag =Tag}) ->
   add_hastags(#twitterServer_state.tag, #twitterServer_state.uid),
-  {reply, ok, State}.
+  {reply, ok, State};
 %% For adding in the mentions corresponding to the user
 handle_call({addmentions, UserId, Mentions}, _From, State = #twitterServer_state{uid=UserId, mentions = Mentions}) ->
   add_mentions(#twitterServer_state.mentions,#twitterServer_state.uid),
-  {reply, ok, State}.
+  {reply, ok, State};
 %% setting the user active
 handle_call({setuseronline, UserId}, _From, State = #twitterServer_state{uid=UserId}) ->
   set_user_online(#twitterServer_state.uid),
-  {reply, ok, State}.
+  {reply, ok, State};
 %% setting the user inactive
 handle_call({takeuseroffline,UserId}, _From, State = #twitterServer_state{uid=UserId}) ->
   take_user_offine(#twitterServer_state.uid),
-  {reply, ok, State}.
+  {reply, ok, State};
 
-
-%% @private
-%% @doc Handling call messages
-%% Dividing User actor is divided in 2 sets -
-%% 1. set  - Tweet Actor( for registering tweets )  , Mention Actor, Hashtag Actor,
-%% 2. Get  - Mention Actor, Hashtag Actor, Retweet Actors
--spec(handle_call(Request :: term(), From :: {pid(), Tag :: term()},
-    State :: #twitterServer_state{}) ->
-  {noreply, NewState :: #twitterServer_state{}} |
-  {noreply, NewState :: #twitterServer_state{}, timeout() | hibernate} |
-  {noreply, NewState :: #twitterServer_state{}} |
-  {noreply, NewState :: #twitterServer_state{}, timeout() | hibernate} |
-  {noreply, NewState :: #twitterServer_state{}} |
-  {noreply, NewState :: #twitterServer_state{}, timeout() | hibernate} |
-  {noreply, NewState :: #twitterServer_state{}} |
-  {noreply, NewState :: #twitterServer_state{}, timeout() | hibernate} |
-  {stop, Reason :: term(), Reply :: term(), NewState :: #twitterServer_state{}} |
-  {stop, Reason :: term(), NewState :: #twitterServer_state{}}).
 %%get the number of subscriber
 handle_call({getsubscriber, UserId}, _From, State = #twitterServer_state{uid=UserId}) ->
   get_subscribed_to(#twitterServer_state.uid),
-  {reply, ok, State}.
+  {reply, ok, State};
 %%get the number of follower
 handle_call({getfollower, UserId}, _From, State = #twitterServer_state{uid=UserId}) ->
   get_follower(#twitterServer_state.uid),
-  {reply, ok, State}.
+  {reply, ok, State};
 %%get the number of tweets
 handle_call({gettweets, UserId}, _From, State = #twitterServer_state{uid=UserId}) ->
   get_my_Tweets(#twitterServer_state.uid),
-  {reply, ok, State}.
+  {reply, ok, State};
 
 %%get the number of Retweets
 handle_call({gettweets, UserId}, _From, State = #twitterServer_state{uid=UserId}) ->
-  get_my_Retweets(#twitterServer_state.uid),
-  {reply, ok, State}.
+  get_retweets(#twitterServer_state.uid),
+  {reply, ok, State};
+
 %% get the user List for ZIPf distribution
 handle_call({subscriberlist, UserIdList}, _From, State = #twitterServer_state{ useridlist =UserIdList}) ->
   get_most_subscribed_users(#twitterServer_state.useridlist),
-  {reply, ok, State}.
+  {reply, ok, State};
 %% checking the user follows or not
 handle_call({alreadyfollow, UserId, FollowerId}, _From, State = #twitterServer_state{uid=UserId, followerid=FollowerId}) ->
-  {reply, {ok, already_follows(#twitterServer_state.uid, #twitterServer_state.followerid)}, State}.
+  {reply, {ok, already_follows(#twitterServer_state.uid, #twitterServer_state.followerid)}, State};
 %% is user online ?
 handle_call({useronline, UserId}, _From, State = #twitterServer_state{uid=UserId}) ->
   is_user_online(#twitterServer_state.uid),
-  {reply, ok, State}.
+  {reply, ok, State};
+
 handle_call({activeuser, UserId}, _From, State = #twitterServer_state{uid=UserId}) ->
   get_active_user(#twitterServer_state.uid),
   {reply, ok, State}.
@@ -229,13 +213,13 @@ add_follower(UserId,Sub)->
 
 
 %%helper Function
-loop_hastags([_|Tag],UserId, Tweets)->
-  add_hastags(_,UserId),
+loop_hastags([T|Tag],UserId, Tweets)->
+  add_hastags(T,UserId),
   loop_hastags(Tag, UserId, Tweets).
 
-loop_mentions([_|Mentions],UserId, Tweets)->
-  add_hastags(_,UserId),
-  loop_hastags(Mentions, UserId, Tweets).
+loop_mentions([T|Mentions],UserId, Tweets)->
+  add_mentions(T,UserId),
+  loop_mentions(Mentions, UserId, Tweets).
 
 %% Processing the Tweets
 add_Tweets(UserId, Tweets)->
@@ -323,7 +307,7 @@ check_active_user(ActiveUserMap, [F| FollowerTuple],ActiveUserList)->
 
 get_active_user(UserId)->
   FollowerTuple = get_follower(UserId),
-  ActiveUserMap = ets:lookup(active_user, _),
+  ActiveUserMap = ets:lookup(active_user, UserId),
   ActiveUserList= [],
   check_active_user(ActiveUserMap, FollowerTuple, ActiveUserList),
   {ActiveUserList}.

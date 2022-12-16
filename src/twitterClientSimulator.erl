@@ -40,9 +40,6 @@
 %%%===================================================================
 
 %% @doc Spawns the server and registers the local name (unique)
--spec(start_link() ->
-  {ok, Pid :: pid()} | ignore | {error, Reason :: term()}).
-
 start_link(NumClients, NumMaxFollowers, PercentageDisconnect) ->
   gen_server:start_link({local, ?SERVER}, ?MODULE, [NumClients, NumMaxFollowers, PercentageDisconnect], []).
 
@@ -131,7 +128,58 @@ handle_cast({takeUsersOffline}, _From, State) ->
   timer:sleep(5000),
   UidsLeftToTakeOffline = #twitterClientSimulatorState.numClients * #twitterClientSimulatorState.percentageDisconnect / 100,
   take_users_offline_internal(UidsLeftToTakeOffline),
-  gen_server:cast(self(), takeUsersOffline).
+  gen_server:cast(self(), takeUsersOffline);
+
+handle_cast({startTweeting, MaxTweets}, _From, State) ->
+  timer:sleep(100),
+  RandomUid = twitterUtils:get_random_uid_from_activeUsers(#twitterClientSimulatorState.allClientsUids),
+  UidPid = maps:get(RandomUid, #twitterClientSimulatorState.uidToPidMap),
+  gen_server:call(UidPid, {makeTweet, MaxTweets rem 3}),
+  gen_server:cast(self(), {startTweeting, MaxTweets - 1});
+
+handle_cast({startRetweeting, MaxRetweets}, _From, State) ->
+  timer:sleep(500),
+  RandomUid = twitterUtils:get_random_uid_from_activeUsers(#twitterClientSimulatorState.allClientsUids),
+  UidPid = maps:get(RandomUid, #twitterClientSimulatorState.uidToPidMap),
+  gen_server:call(UidPid, {retweet}),
+  gen_server:cast(self(), {startRetweeting, MaxRetweets - 1}).
+
+handle_call({alreadyFollows, UidToFollow}, _From, State = #twitterClientSimulatorState{
+  allClientsPids = AllClientsPids,
+  allClientsUids = AllClientsUids,
+  uidToPidMap = UidToPidMap,
+  pidToUidMap = PidToUidMap
+}) ->
+  RandomUid = twitterUtils:get_random_uid_from_activeUsers(AllClientsUids),
+  UidPid = maps:get(RandomUid, UidToPidMap),
+  gen_server:call(UidPid, {follow, UidToFollow});
+
+handle_call({wentOffline, Uid}, _From, State = #twitterClientSimulatorState{
+  allClientsPids = AllClientsPids,
+  allClientsUids = AllClientsUids,
+  uidToPidMap = UidToPidMap,
+  pidToUidMap = PidToUidMap,
+  offlineUids = OfflineUids}) ->
+  UpdatedOfflineUids = lists:append(OfflineUids, Uid),
+  {noreply, #twitterClientSimulatorState{offlineUids = UpdatedOfflineUids}},
+  io:format(" ~p User went offline successfully ~n", [Uid]);
+
+handle_call({cameOnline, Uid}, _From, State = #twitterClientSimulatorState{
+  allClientsPids = AllClientsPids,
+  allClientsUids = AllClientsUids,
+  uidToPidMap = UidToPidMap,
+  pidToUidMap = PidToUidMap,
+  offlineUids = OfflineUids}) ->
+  UpdatedOfflineUids = lists:delete(OfflineUids, Uid),
+  {noreply, #twitterClientSimulatorState{offlineUids = UpdatedOfflineUids}},
+  io:format(" ~p User came online successfully ~n", [Uid]);
+
+handle_call({madeTweet, Uid, Tweet}, _From, State) ->
+  io:format(" ~p User made tweet = ~p ~n", [Uid, Tweet]);
+
+handle_call({madeRetweet, Uid, Tweet}, _From, State) ->
+  io:format(" ~p User made a retweet = ~p ~n", [Uid, Tweet]).
+
 
 take_users_offline_internal(UidsLeftToTakeOffline) when UidsLeftToTakeOffline > 0 ->
   RandomUid = twitterUtils:get_random_uid_from_activeUsers(#twitterClientSimulatorState.allClientsUids),
@@ -144,19 +192,6 @@ prefill_allowed_hashtags(NumHashTags) ->
   lists:append(#twitterClientSimulatorState.prefilledHashtags, HashTag),
   prefill_allowed_hashtags(NumHashTags - 1).
 
-handle_cast({startTweeting, MaxTweets}, _From, State) ->
-  timer:sleep(100),
-  RandomUid = twitterUtils:get_random_uid_from_activeUsers(#twitterClientSimulatorState.allClientsUids),
-  UidPid = maps:get(RandomUid, #twitterClientSimulatorState.uidToPidMap),
-  gen_server:call(UidPid, {makeTweet, MaxTweets rem 3}),
-  gen_server:cast(self(), {startTweeting, MaxTweets - 1}).
-
-handle_cast({startRetweeting, MaxRetweets}, _From, State) ->
-  timer:sleep(500),
-  RandomUid = twitterUtils:get_random_uid_from_activeUsers(#twitterClientSimulatorState.allClientsUids),
-  UidPid = maps:get(RandomUid, #twitterClientSimulatorState.uidToPidMap),
-  gen_server:call(UidPid, {retweet}),
-  gen_server:cast(self(), {startRetweeting, MaxRetweets - 1}).
 
 %% @private
 %% @doc Handling call messages
@@ -168,42 +203,6 @@ handle_cast({startRetweeting, MaxRetweets}, _From, State) ->
   {noreply, NewState :: #twitterClientSimulatorState{}, timeout() | hibernate} |
   {stop, Reason :: term(), Reply :: term(), NewState :: #twitterClientSimulatorState{}} |
   {stop, Reason :: term(), NewState :: #twitterClientSimulatorState{}}).
-
-handle_call({alreadyFollows, UidToFollow}, _From, State = #twitterClientSimulatorState{
-  allClientsPids = AllClientsPids,
-  allClientsUids = AllClientsUids,
-  uidToPidMap = UidToPidMap,
-  pidToUidMap = PidToUidMap
-}) ->
-  RandomUid = twitterUtils:get_random_uid_from_activeUsers(AllClientsUids),
-  UidPid = maps:get(RandomUid, UidToPidMap),
-  gen_server:call(UidPid, {follow, UidToFollow}).
-
-handle_call({wentOffline, Uid}, _From, State = #twitterClientSimulatorState{
-  allClientsPids = AllClientsPids,
-  allClientsUids = AllClientsUids,
-  uidToPidMap = UidToPidMap,
-  pidToUidMap = PidToUidMap,
-  offlineUids = OfflineUids}) ->
-  UpdatedOfflineUids = lists:append(OfflineUids, Uid),
-  {noreply, #twitterClientSimulatorState{offlineUids = UpdatedOfflineUids}},
-  io:format(" ~p User went offline successfully ~n", [Uid]).
-
-handle_call({cameOnline, Uid}, _From, State = #twitterClientSimulatorState{
-  allClientsPids = AllClientsPids,
-  allClientsUids = AllClientsUids,
-  uidToPidMap = UidToPidMap,
-  pidToUidMap = PidToUidMap,
-  offlineUids = OfflineUids}) ->
-  UpdatedOfflineUids = lists:delete(OfflineUids, Uid),
-  {noreply, #twitterClientSimulatorState{offlineUids = UpdatedOfflineUids}},
-  io:format(" ~p User came online successfully ~n", [Uid]).
-
-handle_call({madeTweet, Uid, Tweet}, _From, State) ->
-  io:format(" ~p User made tweet = ~p ~n", [Uid, Tweet]).
-
-handle_call({madeRetweet, Uid, Tweet}, _From, State) ->
-  io:format(" ~p User made a retweet = ~p ~n", [Uid, Tweet]).
 
 %% @private
 %% @doc Handling cast messages
