@@ -28,8 +28,6 @@
 %%%===================================================================
 
 %% @doc Spawns the server and registers the local name (unique)
--spec(start_link() ->
-  {ok, Pid :: pid()} | ignore | {error, Reason :: term()}).
 
 start_link(Uid, DbPid, GeneratedHashTags, AllClientsUids) ->
   gen_server:start_link({local, ?SERVER}, ?MODULE, [Uid, DbPid, GeneratedHashTags, AllClientsUids], []).
@@ -70,37 +68,58 @@ init([Uid, DbPid, GeneratedHashTags, AllClientsUids]) ->
   {stop, Reason :: term(), NewState :: #twitterClient_state{}}).
 
 handle_call({follow, UidToFollow}, _From, State = #twitterClient_state{uid = Uid, pid = Pid}) ->
-  DoesAlreadyFollow = twitterServer:already_follows(UidToFollow, Uid),
+  {ok, DoesAlreadyFollow} = gen_server:call(#twitterClient_state.dbPid, {alreadyfollow, UidToFollow, Uid}),
   if DoesAlreadyFollow == true -> {reply, {alreadyFollows, UidToFollow}, State};
     true ->
-      twitterServer:add_follower(Uid, UidToFollow),
+      gen_server:call(#twitterClient_state.dbPid, {addfollower, Uid, UidToFollow}),
       {reply, followSuccess, State}
-  end.
+  end;
 
 
 handle_call({goOffline}, _From, State = #twitterClient_state{uid = Uid, pid = Pid}) ->
-  twitterServer:take_user_offine(Uid), %% make gen_server call here
-  {reply, {wentOffline, Uid}, State}.
+  gen_server:call(#twitterClient_state.dbPid, {takeuseroffline, Uid}),
+  {reply, {wentOffline, Uid}, State};
 
 handle_call({comeOnline}, _From, State = #twitterClient_state{uid = Uid, pid = Pid}) ->
-  twitterServer:take_user_offine(Uid), %% make gen_server call here
-  {reply, {cameOnline, Uid}, State}.
+  gen_server:call(#twitterClient_state.dbPid, {setuseronline, Uid}),
+  {reply, {cameOnline, Uid}, State};
 
 handle_call({receivedTweet, Tweet, Uid}, _From, State) ->
   io:format(" ~p User received tweet = ~p, from user = ~p. ~n", [#twitterClient_state.uid, Tweet, Uid]),
-  {noreply, State}.
+  {noreply, State};
 
 handle_call({receivedRetweet, Tweet, Uid}, _From, State) ->
   io:format(" ~p User received tweet = ~p, from user = ~p. ~n", [#twitterClient_state.uid, Tweet, Uid]),
-  {noreply, State}.
+  {noreply, State};
 
 handle_call({makeTweet, Type}, _From, State = #twitterClient_state{uid = Uid, pid = Pid}) ->
   Tweet = generate_self_tweet(Type),
   TweetId = crypto:hash(md5, Tweet),
-  %% make DB call, gen_server, tweetId, insert in global maps {tweet -> tweetId}, {tweetId -> tweet}, save it in self_tweets, save in feed of all followers + send this tweet to online followers.
-  LiveFollowersList = [], %% make gen_server call and get all live followers
+  %% make DB call gen_server, insert in global maps {tweet -> tweetId}, {tweetId -> tweet}, save it in self_tweets, save in feed of all followers + send this tweet to online followers.
+  gen_server:call(#twitterClient_state.dbPid, {addtweets, Uid, Tweet}),
+  {ok, LiveFollowersList} = gen_server:call(#twitterClient_state.dbPid, {livefollowers, Uid}),
   propagate_tweet_to_live_followers(0, LiveFollowersList, Tweet),
-  {reply, {madeTweet, Uid, Tweet}, State}.
+  {reply, {madeTweet, Uid, Tweet}, State};
+
+handle_call({retweet}, _From, State = #twitterClient_state{uid = Uid, pid = Pid}) ->
+  AllFeedTweetIds = gen_server:call(#twitterClient_state.dbPid, {gettweets, Uid}),
+  %% my feed will contain tweetIds of all the tweets made by users that I follow
+  RandomTweet = lists:nth(rand:uniform(length(AllFeedTweetIds)), AllFeedTweetIds),
+  %% make db call here to get tweet string from tweetId.
+  %% make db call, insert this tweet in my retweeted tweets, and in my followers feed
+  %% make DB call, gen_server, create tweetId, save it in self_tweets, save in feed of all followers + send this tweet to online followers.
+  {ok, LiveFollowersList} = gen_server:call(#twitterClient_state.dbPid, {livefollowers, Uid}),
+  propagate_retweet_to_live_followers(0, LiveFollowersList, RandomTweet),
+  {reply, {madeRetweet, Uid, RandomTweet}, State};
+
+handle_call({alreadyRegistered, Uid}, _From, State) ->
+  io:format(" ~p User already registered. ~n", [Uid]),
+  {noreply, State};
+
+handle_call({registerationSuccess, Uid}, _From, State) ->
+  io:format(" ~p User registered successfully. ~n", [Uid]),
+  {noreply, State}.
+%% load all the tweets it missed.
 
 propagate_tweet_to_live_followers(CurrIdx, LiveFollowersList, Tweet) ->
   if CurrIdx == length(LiveFollowersList) -> {};
@@ -111,7 +130,7 @@ propagate_tweet_to_live_followers(CurrIdx, LiveFollowersList, Tweet) ->
   end.
 
 generate_self_tweet(Type) -> %% 0 -> with hashtag, 1 -> with mention, 2 -> both, 3/_ -> default
-  BaseTweet = "Hi, this is a base tweet for my uid " + #twitterClient_state.uid,
+  BaseTweet = string:concat("Hi, this is a base tweet for my uid ", #twitterClient_state.uid),
   case Type of
     0 ->
       BaseTweet + lists:nth(rand:uniform(length(#twitterClient_state.genratedHashTags)), #twitterClient_state.genratedHashTags);
@@ -123,17 +142,6 @@ generate_self_tweet(Type) -> %% 0 -> with hashtag, 1 -> with mention, 2 -> both,
     _ -> BaseTweet
   end.
 
-handle_call({retweet}, _From, State = #twitterClient_state{uid = Uid, pid = Pid}) ->
-  AllFeedTweetIds = [], %% make gen server db call here to get all the tweetIds in my feed.
-  %% my feed will contain tweetIds of all the tweets made by users that I follow
-  RandomTweetId = lists:nth(rand:uniform(length(AllFeedTweetIds)), AllFeedTweetIds),
-  RandomTweetString = " ", %% make db call here to get tweet string from tweetId.
-  %% make db call, insert this tweet in my retweeted tweets, and in my followers feed
-  %% make DB call, gen_server, create tweetId, save it in self_tweets, save in feed of all followers + send this tweet to online followers.
-  LiveFollowersList = [], %% make gen_server call and get all live followers
-  propagate_retweet_to_live_followers(0, LiveFollowersList, RandomTweetString),
-  {reply, {madeRetweet, Uid, RandomTweetString}, State}.
-
 
 propagate_retweet_to_live_followers(CurrIdx, LiveFollowersList, ReTweet) ->
   if CurrIdx == length(LiveFollowersList) -> {};
@@ -142,16 +150,6 @@ propagate_retweet_to_live_followers(CurrIdx, LiveFollowersList, ReTweet) ->
       gen_server:call(CurrUid, {receivedRetweet, ReTweet, #twitterClient_state.uid}),
       propagate_retweet_to_live_followers(CurrIdx + 1, LiveFollowersList, ReTweet)
   end.
-
-
-handle_call({alreadyRegistered, Uid}, _From, State) ->
-  io:format(" ~p User already registered. ~n", [Uid]),
-  {noreply, State}.
-
-handle_call({registerationSuccess, Uid}, _From, State) ->
-  io:format(" ~p User registered successfully. ~n", [Uid]),
-  {noreply, State}.
-%% load all the tweets it missed.
 
 %% @private
 %% @doc Handling cast messages
@@ -189,7 +187,3 @@ terminate(_Reason, _State = #twitterClient_state{}) ->
   {ok, NewState :: #twitterClient_state{}} | {error, Reason :: term()}).
 code_change(_OldVsn, State = #twitterClient_state{}, _Extra) ->
   {ok, State}.
-
-%%%===================================================================
-%%% Internal functions
-%%%===================================================================
