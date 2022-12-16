@@ -48,7 +48,7 @@ function get_retweet(){
     var request = new XMLHttpRequest()
 
     // Open a new connection, using the GET request on the URL endpoint
-    request.open('GET', 'http://localhost:8083/get_retweet/user?userId=123', true)
+    request.open('GET', 'http://localhost:8083/get_retweet?userId=123', true)
 
     request.onload = function () {
       // Begin accessing JSON data here
